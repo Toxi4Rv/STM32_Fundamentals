@@ -57,9 +57,9 @@ UART_HandleTypeDef huart4;
 // uint8_t usart2RxData[64];
 // uint8_t uart4RxData[64];
 
-volatile uint16_t ADC_VAL[4];
-volatile int isADCFinished = 0;
-uint32_t countloop = 0;
+// volatile uint16_t ADC_VAL[4];
+// volatile int isADCFinished = 0;
+// uint32_t countloop = 0;
 
 /* USER CODE END PV */
 
@@ -72,6 +72,13 @@ static void MX_ADC1_Init(void);
 static void MX_I2C1_Init(void);
 /* USER CODE BEGIN PFP */
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc);
+void pcf8574_write(uint8_t *data, uint16_t size);
+void lcd_write_byte(uint8_t value, uint8_t rs);
+void lcd_init(void);
+void lcd_send_string(const char *str);
+void lcd_put_cur(uint8_t row, uint8_t col);
+void lcd_send_int(int number);
+void lcd_send_float(float number);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -114,7 +121,15 @@ int main(void)
   /* USER CODE BEGIN 2 */
 //  HAL_UARTEx_ReceiveToIdle_IT(&huart2, usart2RxData, 64);
 //  HAL_UARTEx_ReceiveToIdle_IT(&huart4, uart4RxData, 64);
-  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)ADC_VAL, 4);
+//  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)ADC_VAL, 4);
+  lcd_init();
+
+  lcd_send_string("Hello! Test");
+  lcd_put_cur(1, 0);
+  lcd_send_string("Int is ");
+  lcd_send_int(1);
+  lcd_send_string(".Fl ");
+  lcd_send_float(1.24);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -124,13 +139,6 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	 if (isADCFinished == 1)
-	 {
-		 isADCFinished = 0;
-		 HAL_ADC_Start_DMA(&hadc1, (uint32_t*)ADC_VAL, 4);
-	 }
-	  HAL_Delay(500);
-	  countloop++;
   }
   /* USER CODE END 3 */
 }
@@ -385,12 +393,104 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
-void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
+//void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
+//{
+//	if (hadc->Instance == ADC1)
+//	{
+//		isADCFinished = 1;
+//	}
+//}
+
+void pcf8574_write(uint8_t *data, uint16_t size)
 {
-	if (hadc->Instance == ADC1)
-	{
-		isADCFinished = 1;
-	}
+	HAL_I2C_Master_Transmit(&hi2c1, 0x4E, data, size, 100);
+}
+
+void lcd_write_byte(uint8_t value, uint8_t rs)
+{
+    uint8_t upper = value & 0xF0;
+    uint8_t lower = (value & 0x0F) << 4;
+
+    rs = !!rs;
+
+    uint8_t control = 0x08 | rs;
+
+    uint8_t bytes[4] =
+    {
+        upper | control | 0x04,
+        upper | control,
+        lower | control | 0x04,
+        lower | control
+    };
+
+    pcf8574_write(bytes , 4);
+}
+
+void lcd_init(void)
+{
+    uint8_t init_8bit[2] = {0x3C, 0x38};
+    HAL_Delay(50);
+
+    pcf8574_write(init_8bit , 2);
+    HAL_Delay(5);
+
+    pcf8574_write(init_8bit , 2);
+    HAL_Delay(1);
+
+    pcf8574_write(init_8bit , 2);
+    HAL_Delay(10);
+
+    uint8_t init_4bit[2] = {0x2c, 0x28};
+    pcf8574_write(init_4bit , 2);
+    HAL_Delay(1);
+
+    lcd_write_byte(0x28, 0);
+    HAL_Delay(1);
+
+    lcd_write_byte(0x08, 0);
+    HAL_Delay(1);
+
+    lcd_write_byte(0x01, 0);
+    HAL_Delay(2);
+
+    lcd_write_byte(0x06, 0);
+    HAL_Delay(1);
+
+    lcd_write_byte(0x0C, 0);
+    HAL_Delay(1);
+}
+
+void lcd_send_string(const char *str)
+{
+    while(*str)
+    {
+        lcd_write_byte((uint8_t)*str++, 1);
+    }
+}
+
+void lcd_put_cur(uint8_t row, uint8_t col)
+{
+    if (row > 1 || col > 15)
+    {
+        return;
+    }
+
+    uint8_t address = (row == 0) ? col : (0x40 + col);
+    lcd_write_byte(0x80 | address, 0);
+}
+
+void lcd_send_int(int number)
+{
+    char buffer[12];
+    snprintf(buffer, sizeof(buffer), "%d", number);
+    lcd_send_string(buffer);
+}
+
+void lcd_send_float(float number)
+{
+    char buffer[20];
+    snprintf(buffer, sizeof(buffer), "%.2f", number);
+    lcd_send_string(buffer);
 }
 /* USER CODE END 4 */
 

@@ -68,6 +68,31 @@ Selected earlier exercises were adapted to the **STM32F103C8T6 (Blue Pill)** and
 - Stored multi-channel ADC results in a `uint16_t` buffer and manually restarted DMA after transfer completion.
 - Worked with ADC scan mode, conversion sequencing, sampling time, EOC, and DMA transfer configuration.
 
+### I2C / LCD1602
+
+- Configured I2C1 on the STM32F446RE:
+  - PB6 — I2C1_SCL
+  - PB7 — I2C1_SDA
+  - Standard Mode at 100 kHz
+  - Polling-based communication using STM32 HAL
+- Studied I2C START/STOP conditions, addressing, ACK/NACK,
+  and Open-Drain signaling.
+- Implemented an LCD1602 driver using the HD44780 controller
+  and PCF8574 I2C I/O expander.
+- Implemented the following functions:
+  - `pcf8574_write()` — I2C data transmission
+  - `lcd_write_byte()` — 4-bit LCD data and command transmission
+  - `lcd_init()` — LCD initialization
+  - `lcd_send_string()` — string output
+  - `lcd_put_cur()` — DDRAM cursor positioning
+  - `lcd_send_int()` — integer output
+  - `lcd_send_float()` — floating-point output
+- Implemented LCD initialization, 4-bit data transmission,
+  cursor positioning, and text formatting.
+- Used `snprintf()` to convert numeric values into strings.
+- LCD driver implementation is complete at the source-code level.
+- Physical LCD1602/PCF8574 hardware testing is pending.
+
 ## Project Targets
 
 | Purpose | Board / MCU | Notes |
@@ -113,6 +138,8 @@ Build output directories such as `Debug/` and `Release/` are intentionally exclu
 2. Generate the project code if the CubeMX configuration has changed.
 3. Build the project in STM32CubeIDE.
 4. Build artifacts are generated locally and are not committed to the repository.
+5. For floating-point formatting with `snprintf()` in newlib-nano,
+   the linker option `-u _printf_float` may be required.
 
 ## Wokwi Testing
 
@@ -162,12 +189,14 @@ This repository will grow as the STM32 beginner course progresses.
 - [x] UART DMA
 - [x] UART Receive-to-Idle reception
 - [x] USART2 ↔ UART4 bidirectional bridge for HC-05 Bluetooth module
-- [ ] HC-05 Bluetooth hardware validation
 - [x] ADC
   - [x] Single-channel polling
   - [x] Single-channel interrupt and DMA
   - [x] Multiple-channel DMA normal mode
-- [ ] I2C LCD1602 / PCF8574
+- [x] I2C LCD1602 / PCF8574
+  - [x] I2C1 configuration
+  - [x] LCD1602 driver implementation
+  - [x] String, integer, and float output functions
 - [ ] DS3231 RTC
 - [ ] BMP180
 - [ ] BME280

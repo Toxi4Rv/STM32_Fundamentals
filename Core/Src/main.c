@@ -32,7 +32,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define DS3231_ADDRESS 0xD0
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -61,6 +61,19 @@ UART_HandleTypeDef huart4;
 // volatile int isADCFinished = 0;
 // uint32_t countloop = 0;
 
+struct
+{
+uint8_t seconds;
+uint8_t minutes;
+uint8_t hours;
+uint8_t dayofweek;
+uint8_t dayofmonth;
+uint8_t month;
+uint8_t year;
+}
+time;
+
+char buffer[15];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -79,6 +92,12 @@ void lcd_send_string(const char *str);
 void lcd_put_cur(uint8_t row, uint8_t col);
 void lcd_send_int(int number);
 void lcd_send_float(float number);
+uint8_t decToBcd(uint8_t value);
+uint8_t bcdToDec(uint8_t value);
+void set_time(uint8_t sec, uint8_t min, uint8_t hour, uint8_t dow, uint8_t dom, uint8_t month, uint8_t year);
+void get_time(void);
+float get_temp(void);
+void force_temp_conv(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -124,18 +143,31 @@ int main(void)
 //  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)ADC_VAL, 4);
   lcd_init();
 
-  lcd_send_string("Hello! Test");
-  lcd_put_cur(1, 0);
-  lcd_send_string("Int is ");
-  lcd_send_int(1);
-  lcd_send_string(".Fl ");
-  lcd_send_float(1.24);
+  set_time(0, 37, 11, 2, 10, 11, 26);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while(1)
   {
+	  get_time();
+	  snprintf(buffer, sizeof(buffer), "%02d:%02d:%02d", time.hours, time.minutes, time.seconds);
+	  lcd_put_cur(0, 0);
+	  lcd_send_string(buffer);
+
+	  lcd_put_cur(1, 0);
+	  snprintf(buffer, sizeof(buffer), "%02d-%02d-20%02d", time.dayofmonth, time.month, time.year);
+	  lcd_send_string(buffer);
+
+	  lcd_put_cur(0, 10);
+	  force_temp_conv();
+	  float temp = get_temp();
+	  snprintf(buffer, sizeof(buffer), "%-6.2f", temp);
+	  lcd_send_string(buffer);
+
+	  HAL_Delay(500);
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -491,6 +523,75 @@ void lcd_send_float(float number)
     char buffer[20];
     snprintf(buffer, sizeof(buffer), "%.2f", number);
     lcd_send_string(buffer);
+}
+
+uint8_t decToBcd(uint8_t value)
+{
+	return value / 10 << 4 | value % 10;
+}
+
+uint8_t bcdToDec(uint8_t value)
+{
+	return (value >> 4) * 10 + (value & 0x0F);
+}
+
+void set_time(uint8_t sec, uint8_t min, uint8_t hour, uint8_t dow, uint8_t dom, uint8_t month, uint8_t year)
+{
+	uint8_t buffer[7];
+
+	buffer[0] = decToBcd(sec);
+	buffer[1] = decToBcd(min);
+	buffer[2] = decToBcd(hour);
+	buffer[3] = decToBcd(dow);
+	buffer[4] = decToBcd(dom);
+	buffer[5] = decToBcd(month);
+	buffer[6] = decToBcd(year);
+
+	HAL_I2C_Mem_Write(&hi2c1, DS3231_ADDRESS, 0x00, 1, buffer, 7, 1000);
+}
+
+void get_time(void)
+{
+	uint8_t buffer[7];
+	HAL_I2C_Mem_Read(&hi2c1, DS3231_ADDRESS, 0x00, 1, buffer, 7, 1000);
+	time.seconds = bcdToDec(buffer[0]);
+	time.minutes = bcdToDec(buffer[1]);
+	time.hours = bcdToDec(buffer[2]);
+	time.dayofweek = bcdToDec(buffer[3]);
+	time.dayofmonth = bcdToDec(buffer[4]);
+	time.month = bcdToDec(buffer[5]);
+	time.year = bcdToDec(buffer[6]);
+}
+
+float get_temp(void)
+{
+	uint8_t buffer[2];
+	HAL_I2C_Mem_Read(&hi2c1, DS3231_ADDRESS, 0x11, 1, buffer, 2, 1000);
+	return (int8_t)buffer[0] + (buffer[1] >> 6) * 0.25f;
+}
+
+void force_temp_conv(void)
+{
+	uint8_t status_register = 0;
+	uint8_t control_register = 0;
+	HAL_I2C_Mem_Read(&hi2c1, DS3231_ADDRESS, 0x0F, 1, &status_register, 1, 1000);
+	if (!(status_register & 0x04))
+	{
+		HAL_I2C_Mem_Read(&hi2c1, DS3231_ADDRESS, 0x0E, 1, &control_register, 1, 1000);
+		control_register |= 0x20;
+		HAL_I2C_Mem_Write(&hi2c1, DS3231_ADDRESS, 0x0E, 1, &control_register, 1, 1000);
+		uint32_t start = HAL_GetTick();
+		while (HAL_GetTick() - start < 300)
+		{
+			HAL_I2C_Mem_Read(&hi2c1, DS3231_ADDRESS, 0x0E, 1, &control_register, 1, 1000);
+			if (!(control_register & 0x20))
+			{
+				break;
+			}
+			HAL_Delay(1);
+		}
+
+	}
 }
 /* USER CODE END 4 */
 

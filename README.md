@@ -43,17 +43,21 @@ Selected earlier exercises were adapted to the **STM32F103C8T6 (Blue Pill)** and
 - Implemented interrupt-driven UART reception with `HAL_UART_Receive_IT()`.
 - Implemented reception of variable-length data by receiving one byte at a time and using `'\n'` as a message terminator.
 - Implemented variable-length interrupt-driven reception using `HAL_UARTEx_ReceiveToIdle_IT()`.
-- Configured UART4 for communication with an HC-05 Bluetooth module at 115200 baud, 8N1.
-- Implemented bidirectional forwarding between USART2 and UART4:
-  - PC → ST-LINK VCP → USART2 → UART4 → HC-05
-  - HC-05 → UART4 → USART2 → ST-LINK VCP → PC
-  - USART2 and UART4 use separate RX buffers.
-  - `HAL_UARTEx_RxEventCallback()` stores the received size and sets a data-ready flag.
-  - Forwarding is handled in the main loop.
-  - Receive is re-armed after the current buffer has been forwarded.
-- Physical HC-05 communication has not yet been validated.
 - Connected USART2 to the Wokwi Serial Monitor for simulation.
 - Used Wokwi Logic Analyzer / VCD output to inspect UART timing and inter-byte behavior.
+
+### HC-05 Bluetooth / UART Bridge
+
+- Configured UART4 for communication with an HC-05 Bluetooth module at 115200 baud, 8N1.
+- Implemented bidirectional data forwarding between USART2 and UART4:
+  - PC → ST-LINK VCP → USART2 → UART4 → HC-05
+  - HC-05 → UART4 → USART2 → ST-LINK VCP → PC
+- Used separate RX buffers for USART2 and UART4.
+- Implemented interrupt-driven reception using `HAL_UARTEx_ReceiveToIdle_IT()`.
+- Used `HAL_UARTEx_RxEventCallback()` to store the received data size and set data-ready flags.
+- Handled bidirectional data forwarding in the main loop.
+- Re-armed UART reception after forwarding the current buffer.
+- Physical HC-05 communication has not yet been validated.
 
 ### ADC
 
@@ -92,6 +96,22 @@ Selected earlier exercises were adapted to the **STM32F103C8T6 (Blue Pill)** and
 - Used `snprintf()` to convert numeric values into strings.
 - LCD driver implementation is complete at the source-code level.
 - Physical LCD1602/PCF8574 hardware testing is pending.
+
+
+### DS3231 RTC
+
+- Integrated the DS3231 real-time clock module using I2C1.
+- Implemented date and time configuration and reading using:
+  - `HAL_I2C_Mem_Write()`
+  - `HAL_I2C_Mem_Read()`
+- Implemented decimal-to-BCD and BCD-to-decimal conversion.
+- Configured date and time handling in 24-hour format.
+- Implemented temperature reading with 0.25°C resolution, including negative temperatures using two's complement.
+- Implemented forced temperature conversion using the DS3231 CONV and BSY control/status bits.
+- Displayed time, date, and temperature on LCD1602 using `snprintf()`.
+- DS3231 RTC implementation is complete at the source-code level.
+- Physical DS3231 hardware testing is pending.
+
 
 ## Project Targets
 
@@ -197,7 +217,12 @@ This repository will grow as the STM32 beginner course progresses.
   - [x] I2C1 configuration
   - [x] LCD1602 driver implementation
   - [x] String, integer, and float output functions
-- [ ] DS3231 RTC
+- [x] DS3231 RTC
+  - [x] Date and time read/write using I2C
+  - [x] Decimal and BCD conversion
+  - [x] Temperature reading and signed value decoding
+  - [x] Forced temperature conversion
+  - [x] LCD1602 date, time, and temperature output
 - [ ] BMP180
 - [ ] BME280
 - [ ] ST7735 TFT
